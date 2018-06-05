@@ -1,3 +1,6 @@
 [submodule "tutorials/nmt"]
 	path = tutorials/nmt
 	url = https://github.com/tensorflow/nmt/
+[submodule "tutorials/How_to_make_a_language_translator"]
+	path = tutorials/How_to_make_a_language_translator
+	url = https://github.com/llSourcell/How_to_make_a_language_translator.git
