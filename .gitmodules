@@ -4,3 +4,6 @@
 [submodule "tutorials/How_to_make_a_language_translator"]
 	path = tutorials/How_to_make_a_language_translator
 	url = https://github.com/llSourcell/How_to_make_a_language_translator.git
+[submodule "tutorials/seq2seq_model_live"]
+	path = tutorials/seq2seq_model_live
+	url = https://github.com/llSourcell/seq2seq_model_live.git
