@@ -67,3 +67,6 @@ __pycache__/
 
 .idea
 preprocess.p
+data/corpus\.en_ru\.en\.processed
+
+data/corpus\.en_ru\.ru\.processed
