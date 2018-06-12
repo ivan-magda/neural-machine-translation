@@ -15,7 +15,7 @@ def load_data(path):
         return f.read()
 
 
-def preprocess_and_save_data(source_path, target_path, text_to_ids):
+def preprocess_and_save_data(source_path, target_path, text_to_ids, keep_percentage=100):
     """
     Preprocess Text Data.  Save to to file.
     """
@@ -25,6 +25,20 @@ def preprocess_and_save_data(source_path, target_path, text_to_ids):
 
     source_text = source_text.lower()
     target_text = target_text.lower()
+
+    assert 0 <= keep_percentage <= 100
+    if keep_percentage != 100:
+        source_sentences = source_text.split('\n')
+        target_sentences = target_text.split('\n')
+
+        assert len(source_sentences) == len(target_sentences)
+        keep_sentences = len(source_sentences) * keep_percentage // 100
+
+        source_sentences = source_sentences[:keep_sentences]
+        target_sentences = target_sentences[:keep_sentences]
+
+        source_text = "\n".join(source_sentences)
+        target_text = "\n".join(target_sentences)
 
     source_vocab_to_int, source_int_to_vocab = create_lookup_tables(source_text)
     target_vocab_to_int, target_int_to_vocab = create_lookup_tables(target_text)
