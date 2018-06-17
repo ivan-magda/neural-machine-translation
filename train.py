@@ -361,21 +361,21 @@ def get_accuracy(target, logits):
     return np.mean(np.equal(target, logits))
 
 
-for embedding_size in [64, 100, 128, 256]:
+for keep_probability in [0.25, 0.5, 0.75]:
     tf.reset_default_graph()
 
     print("************************************************")
-    print("Embedding Size= {}".format(embedding_size))
+    print("Keep Probability= {}".format(keep_probability))
     print("************************************************")
 
     epochs = 14
     batch_size = 1024
     rnn_size = 128
     num_layers = 2
-    encoding_embedding_size = embedding_size
-    decoding_embedding_size = embedding_size
+    encoding_embedding_size = 100
+    decoding_embedding_size = 100
     learning_rate = 0.01
-    keep_probability = 0.5
+    # keep_probability = 0.5
     display_step = 20
 
     save_path = 'checkpoints/dev'
@@ -426,7 +426,7 @@ for embedding_size in [64, 100, 128, 256]:
 
     now = datetime.utcnow().strftime("%Y%m%d%H%M%S")
     root_logdir = "./logs/"
-    logdir = "{}/run-{}-embedding-size-{}".format(root_logdir, now, embedding_size)
+    logdir = "{}/run-{}-keep_probability-{}".format(root_logdir, now, keep_probability)
 
     # Split data to training and validation sets
     train_source = source_int_text[batch_size:]
