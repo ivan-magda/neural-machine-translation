@@ -361,17 +361,17 @@ def get_accuracy(target, logits):
     return np.mean(np.equal(target, logits))
 
 
-for num_layers in np.arange(2, 6, 1):
+for epochs in np.arange(2, 22, 2):
     tf.reset_default_graph()
 
     print("************************************************")
-    print("Number of Layers= {}".format(num_layers))
+    print("Epochs= {}".format(epochs))
     print("************************************************")
 
-    epochs = 21
+    # epochs = 21
     batch_size = 1024
     rnn_size = 100
-    # num_layers = 2
+    num_layers = 2
     encoding_embedding_size = 100
     decoding_embedding_size = 100
     learning_rate = 0.01
@@ -426,7 +426,7 @@ for num_layers in np.arange(2, 6, 1):
 
     now = datetime.utcnow().strftime("%Y%m%d%H%M%S")
     root_logdir = "./logs/"
-    logdir = "{}/run-{}-lstm-num-layers-{}".format(root_logdir, now, num_layers)
+    logdir = "{}/run-{}-lstm-epochs-{}".format(root_logdir, now, epochs)
 
     # Split data to training and validation sets
     train_source = source_int_text[batch_size:]
