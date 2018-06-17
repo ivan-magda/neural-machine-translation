@@ -361,16 +361,17 @@ def get_accuracy(target, logits):
     return np.mean(np.equal(target, logits))
 
 
-for batch_size in 2 ** np.arange(11)[5:]:
+for num_layers in np.arange(2, 6, 1):
     tf.reset_default_graph()
 
     print("************************************************")
-    print("Batch Size= {}".format(batch_size))
+    print("Number of Layers= {}".format(num_layers))
     print("************************************************")
 
     epochs = 21
+    batch_size = 1024
     rnn_size = 100
-    num_layers = 2
+    # num_layers = 2
     encoding_embedding_size = 100
     decoding_embedding_size = 100
     learning_rate = 0.01
@@ -384,8 +385,6 @@ for batch_size in 2 ** np.arange(11)[5:]:
     train_graph = tf.Graph()
     with train_graph.as_default():
         input_data, targets, lr, keep_prob, target_sequence_length, max_target_sequence_length, source_sequence_length = model_inputs()
-
-        # sequence_length = tf.placeholder_with_default(max_target_sentence_length, None, name='sequence_length')
         input_shape = tf.shape(input_data)
 
         train_logits, inference_logits = seq2seq_model(
@@ -427,7 +426,7 @@ for batch_size in 2 ** np.arange(11)[5:]:
 
     now = datetime.utcnow().strftime("%Y%m%d%H%M%S")
     root_logdir = "./logs/"
-    logdir = "{}/run-{}-lstm-bs-{}".format(root_logdir, now, learning_rate)
+    logdir = "{}/run-{}-lstm-num-layers-{}".format(root_logdir, now, num_layers)
 
     # Split data to training and validation sets
     train_source = source_int_text[batch_size:]
