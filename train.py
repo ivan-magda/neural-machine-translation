@@ -361,19 +361,19 @@ def get_accuracy(target, logits):
     return np.mean(np.equal(target, logits))
 
 
-for rnn_size in [32, 64, 100, 128, 256]:
+for embedding_size in [64, 100, 128, 256]:
     tf.reset_default_graph()
 
     print("************************************************")
-    print("RNN Size= {}".format(rnn_size))
+    print("Embedding Size= {}".format(embedding_size))
     print("************************************************")
 
     epochs = 14
     batch_size = 1024
-    # rnn_size = 100
+    rnn_size = 128
     num_layers = 2
-    encoding_embedding_size = 100
-    decoding_embedding_size = 100
+    encoding_embedding_size = embedding_size
+    decoding_embedding_size = embedding_size
     learning_rate = 0.01
     keep_probability = 0.5
     display_step = 20
@@ -426,7 +426,7 @@ for rnn_size in [32, 64, 100, 128, 256]:
 
     now = datetime.utcnow().strftime("%Y%m%d%H%M%S")
     root_logdir = "./logs/"
-    logdir = "{}/run-{}-rnn-size-{}".format(root_logdir, now, rnn_size)
+    logdir = "{}/run-{}-embedding-size-{}".format(root_logdir, now, embedding_size)
 
     # Split data to training and validation sets
     train_source = source_int_text[batch_size:]
