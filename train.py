@@ -361,146 +361,140 @@ def get_accuracy(target, logits):
     return np.mean(np.equal(target, logits))
 
 
-for keep_probability in [0.25, 0.5, 0.75]:
-    tf.reset_default_graph()
+epochs = 21
+batch_size = 1024
+rnn_size = 128
+num_layers = 2
+encoding_embedding_size = 100
+decoding_embedding_size = 100
+learning_rate = 0.01
+keep_probability = 0.75
+display_step = 20
 
-    print("************************************************")
-    print("Keep Probability= {}".format(keep_probability))
-    print("************************************************")
+save_path = 'checkpoints/dev'
+(source_int_text, target_int_text), (source_vocab_to_int, target_vocab_to_int), _ = helper.load_preprocess()
+max_target_sentence_length = max([len(sentence) for sentence in source_int_text])
 
-    epochs = 14
-    batch_size = 1024
-    rnn_size = 128
-    num_layers = 2
-    encoding_embedding_size = 100
-    decoding_embedding_size = 100
-    learning_rate = 0.01
-    # keep_probability = 0.5
-    display_step = 20
+train_graph = tf.Graph()
+with train_graph.as_default():
+    input_data, targets, lr, keep_prob, target_sequence_length, max_target_sequence_length, source_sequence_length = model_inputs()
+    input_shape = tf.shape(input_data)
 
-    save_path = 'checkpoints/dev'
-    (source_int_text, target_int_text), (source_vocab_to_int, target_vocab_to_int), _ = helper.load_preprocess()
-    max_target_sentence_length = max([len(sentence) for sentence in source_int_text])
+    train_logits, inference_logits = seq2seq_model(
+        tf.reverse(input_data, [-1]),
+        targets,
+        keep_prob,
+        batch_size,
+        source_sequence_length,
+        target_sequence_length,
+        max_target_sequence_length,
+        len(source_vocab_to_int),
+        len(target_vocab_to_int),
+        encoding_embedding_size,
+        decoding_embedding_size,
+        rnn_size,
+        num_layers,
+        target_vocab_to_int
+    )
 
-    train_graph = tf.Graph()
-    with train_graph.as_default():
-        input_data, targets, lr, keep_prob, target_sequence_length, max_target_sequence_length, source_sequence_length = model_inputs()
-        input_shape = tf.shape(input_data)
+    training_logits = tf.identity(train_logits.rnn_output, name='logits')
+    inference_logits = tf.identity(inference_logits.sample_id, name='predictions')
 
-        train_logits, inference_logits = seq2seq_model(
-            tf.reverse(input_data, [-1]),
+    masks = tf.sequence_mask(target_sequence_length, max_target_sequence_length, dtype=tf.float32, name='masks')
+
+    with tf.name_scope("optimization"):
+        # Loss function
+        cost = tf.contrib.seq2seq.sequence_loss(
+            training_logits,
             targets,
-            keep_prob,
-            batch_size,
-            source_sequence_length,
-            target_sequence_length,
-            max_target_sequence_length,
-            len(source_vocab_to_int),
-            len(target_vocab_to_int),
-            encoding_embedding_size,
-            decoding_embedding_size,
-            rnn_size,
-            num_layers,
-            target_vocab_to_int
-        )
+            masks)
 
-        training_logits = tf.identity(train_logits.rnn_output, name='logits')
-        inference_logits = tf.identity(inference_logits.sample_id, name='predictions')
+        # Optimizer
+        optimizer = tf.train.AdamOptimizer(lr)
 
-        masks = tf.sequence_mask(target_sequence_length, max_target_sequence_length, dtype=tf.float32, name='masks')
+        # Gradient Clipping
+        gradients = optimizer.compute_gradients(cost)
+        capped_gradients = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gradients if grad is not None]
+        train_op = optimizer.apply_gradients(capped_gradients)
 
-        with tf.name_scope("optimization"):
-            # Loss function
-            cost = tf.contrib.seq2seq.sequence_loss(
-                training_logits,
-                targets,
-                masks)
+now = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+root_logdir = "./logs/"
+logdir = "{}/run-{}-lstm".format(root_logdir, now)
 
-            # Optimizer
-            optimizer = tf.train.AdamOptimizer(lr)
+# Split data to training and validation sets
+train_source = source_int_text[batch_size:]
+train_target = target_int_text[batch_size:]
+valid_source = source_int_text[:batch_size]
+valid_target = target_int_text[:batch_size]
+(valid_sources_batch, valid_targets_batch, valid_sources_lengths, valid_targets_lengths) = next(
+    get_batches(valid_source,
+                valid_target,
+                batch_size,
+                source_vocab_to_int['<PAD>'],
+                target_vocab_to_int['<PAD>']))
 
-            # Gradient Clipping
-            gradients = optimizer.compute_gradients(cost)
-            capped_gradients = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gradients if grad is not None]
-            train_op = optimizer.apply_gradients(capped_gradients)
+writer = tf.summary.FileWriter(logdir, graph=train_graph)
 
-    now = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    root_logdir = "./logs/"
-    logdir = "{}/run-{}-keep_probability-{}".format(root_logdir, now, keep_probability)
+with tf.Session(graph=train_graph) as sess:
+    sess.run(tf.global_variables_initializer())
 
-    # Split data to training and validation sets
-    train_source = source_int_text[batch_size:]
-    train_target = target_int_text[batch_size:]
-    valid_source = source_int_text[:batch_size]
-    valid_target = target_int_text[:batch_size]
-    (valid_sources_batch, valid_targets_batch, valid_sources_lengths, valid_targets_lengths) = next(
-        get_batches(valid_source,
-                    valid_target,
-                    batch_size,
-                    source_vocab_to_int['<PAD>'],
-                    target_vocab_to_int['<PAD>']))
+    for epoch_i in range(epochs):
+        for batch_i, (source_batch, target_batch, sources_lengths, targets_lengths) in enumerate(
+                get_batches(train_source, train_target, batch_size,
+                            source_vocab_to_int['<PAD>'],
+                            target_vocab_to_int['<PAD>'])):
 
-    writer = tf.summary.FileWriter(logdir, graph=train_graph)
+            _, loss = sess.run(
+                [train_op, cost],
+                {
+                    input_data: source_batch,
+                    targets: target_batch,
+                    lr: learning_rate,
+                    target_sequence_length: targets_lengths,
+                    source_sequence_length: sources_lengths,
+                    keep_prob: keep_probability
+                }
+            )
 
-    with tf.Session(graph=train_graph) as sess:
-        sess.run(tf.global_variables_initializer())
-
-        for epoch_i in range(epochs):
-            for batch_i, (source_batch, target_batch, sources_lengths, targets_lengths) in enumerate(
-                    get_batches(train_source, train_target, batch_size,
-                                source_vocab_to_int['<PAD>'],
-                                target_vocab_to_int['<PAD>'])):
-
-                _, loss = sess.run(
-                    [train_op, cost],
+            if batch_i % display_step == 0 and batch_i > 0:
+                batch_train_logits = sess.run(
+                    inference_logits,
                     {
                         input_data: source_batch,
-                        targets: target_batch,
-                        lr: learning_rate,
-                        target_sequence_length: targets_lengths,
                         source_sequence_length: sources_lengths,
-                        keep_prob: keep_probability
+                        target_sequence_length: targets_lengths,
+                        keep_prob: 1.0
                     }
                 )
 
-                if batch_i % display_step == 0 and batch_i > 0:
-                    batch_train_logits = sess.run(
-                        inference_logits,
-                        {
-                            input_data: source_batch,
-                            source_sequence_length: sources_lengths,
-                            target_sequence_length: targets_lengths,
-                            keep_prob: 1.0
-                        }
-                    )
+                batch_valid_logits = sess.run(
+                    inference_logits,
+                    {
+                        input_data: valid_sources_batch,
+                        source_sequence_length: valid_sources_lengths,
+                        target_sequence_length: valid_targets_lengths,
+                        keep_prob: 1.0
+                    }
+                )
 
-                    batch_valid_logits = sess.run(
-                        inference_logits,
-                        {
-                            input_data: valid_sources_batch,
-                            source_sequence_length: valid_sources_lengths,
-                            target_sequence_length: valid_targets_lengths,
-                            keep_prob: 1.0
-                        }
-                    )
+                train_acc = get_accuracy(target_batch, batch_train_logits)
+                valid_acc = get_accuracy(valid_targets_batch, batch_valid_logits)
 
-                    train_acc = get_accuracy(target_batch, batch_train_logits)
-                    valid_acc = get_accuracy(valid_targets_batch, batch_valid_logits)
+                step = epoch_i * (len(source_batch) // batch_size) + batch_i
 
-                    step = epoch_i * (len(source_batch) // batch_size) + batch_i
+                summary = tf.Summary()
+                summary.value.add(tag='Train Accuracy', simple_value=train_acc)
+                summary.value.add(tag='Validation Accuracy', simple_value=valid_acc)
+                summary.value.add(tag='Loss', simple_value=loss)
 
-                    summary = tf.Summary()
-                    summary.value.add(tag='Train Accuracy', simple_value=train_acc)
-                    summary.value.add(tag='Validation Accuracy', simple_value=valid_acc)
-                    summary.value.add(tag='Loss', simple_value=loss)
+                writer.add_summary(summary, global_step=step)
 
-                    writer.add_summary(summary, global_step=step)
+                print(
+                    'Epoch {:>3} Batch {:>4}/{} - Train Accuracy: {:>6.4f}, Validation Accuracy: {:>6.4f}, Loss: {:>6.4f}'
+                        .format(epoch_i, batch_i, len(source_int_text) // batch_size, train_acc, valid_acc, loss)
+                )
 
-                    print(
-                        'Epoch {:>3} Batch {:>4}/{} - Train Accuracy: {:>6.4f}, Validation Accuracy: {:>6.4f}, Loss: {:>6.4f}'
-                            .format(epoch_i, batch_i, len(source_int_text) // batch_size, train_acc, valid_acc, loss))
-
-        # Save Model
-        saver = tf.train.Saver()
-        saver.save(sess, save_path)
-        print('Model Trained and Saved')
+    # Save Model
+    saver = tf.train.Saver()
+    saver.save(sess, save_path)
+    print('Model Trained and Saved')
